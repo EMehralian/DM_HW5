@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 from sklearn import tree
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import VotingClassifier
 from sklearn.feature_selection import VarianceThreshold
-from sklearn.metrics import confusion_matrix
+from sklearn.linear_model import LogisticRegression
+from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import KFold
 from math import sqrt
@@ -14,7 +16,6 @@ x_train = pd.read_csv('./data_fraud/X_train.csv')
 y_train = pd.read_csv('./data_fraud/Y_train.csv')
 x_test = pd.read_csv('./data_fraud/X_test.csv')
 # print(x_train.head())
-
 
 # print(x_train.describe())
 
@@ -75,6 +76,11 @@ DT = DecisionTreeClassifier(random_state=0, max_depth=10, min_samples_leaf=5)
 # pred_DT = my_DT.predict(x_test)
 # print(len(set(pred_DT == 1)))
 
+NN = MLPClassifier( alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+
+LR = LogisticRegression(penalty='l1', tol=0.01)
+
+eclf = VotingClassifier(estimators=[('forest', forest), ('DT', DT), ('NN', NN)], voting='hard')
 
 def perf_measure(y_actual, y_hat):
     TP = 0
@@ -83,39 +89,68 @@ def perf_measure(y_actual, y_hat):
     FN = 0
 
     for i in range(len(y_hat)):
-        if y_actual[i]==y_hat[i]==1:
-           TP += 1
+        if y_actual[i] == y_hat[i] == 1:
+            TP += 1
     for i in range(len(y_hat)):
-        if y_hat[i]==1 and y_actual[i]!=y_hat[i]:
-           FP += 1
+        if y_hat[i] == 1 and y_actual[i] != y_hat[i]:
+            FP += 1
     for i in range(len(y_hat)):
-        if y_actual[i]==y_hat[i]==0:
-           TN += 1
+        if y_actual[i] == y_hat[i] == 0:
+            TN += 1
     for i in range(len(y_hat)):
-        if y_hat[i]==0 and y_actual[i]!=y_hat[i]:
-           FN += 1
+        if y_hat[i] == 0 and y_actual[i] != y_hat[i]:
+            FN += 1
     TPR = TP / (TP + FN)
     return TPR
+
 
 X = x_train.values
 y = y_train.values
 kf = KFold(n_splits=10, random_state=None, shuffle=False)
 DTRMSE = 0
+NNRMSE = 0
 ForestRMSE = 0
+LRRMSE = 0
 DT_TPR = 0
-print(len(X))
+NN_TPR = 0
+forest_TPR = 0
+LR_TPR = 0
+eclf_TPR = 0
 for train_index, test_index in kf.split(X):
     X_train, X_test = X[train_index], X[test_index]
     y_train, y_test = y[train_index], y[test_index]
 
-    predicted_DT = DT.fit(X_train, y_train)
-    DTRMSE += sqrt(mean_squared_error(y_test, DT.predict(X_test)))
-    DT_TPR += perf_measure(y_test, DT.predict(X_test))
+    # DT.fit(X_train, y_train)
+    # DTRMSE += sqrt(mean_squared_error(y_test, DT.predict(X_test)))
+    # DT_TPR += perf_measure(y_test, DT.predict(X_test))
+
+    # NN.fit(X_train, y_train)
+    # NNRMSE += sqrt(mean_squared_error(y_test, NN.predict(X_test)))
+    # NN_TPR += perf_measure(y_test, NN.predict(X_test))
 
     # forest.fit(X_train, y_train)
     # ForestRMSE += sqrt(mean_squared_error(y_test, forest.predict(X_test)))
+    # forest_TPR += perf_measure(y_test, forest.predict(X_test))
 
-print("DT: %f " % (DT_TPR / 10))
-print("DTRMSE: %f " % (DTRMSE / 10))
+    # LR.fit(X_train, y_train)
+    # LRRMSE += sqrt(mean_squared_error(y_test, LR.predict(X_test)))
+    # LR_TPR += perf_measure(y_test, LR.predict(X_test))
 
-# print("GradientBoostingRMSE: %f" % (ForestRMSE / 10))
+    eclf.fit(X_train,y_train)
+    eclf_TPR += perf_measure(y_test, eclf.predict(X_test))
+
+# print("DT: %f " % (DT_TPR / 10))
+# print("DTRMSE: %f " % (DTRMSE / 10))
+# print("NN: %f " % (NN_TPR / 10))
+# print("NNRMSE: %f " % (NNRMSE / 10))
+# print("forest: %f " % (forest_TPR / 10))
+# print("forestRMSE: %f " % (ForestRMSE / 10))
+# print("LR_TPR: %f " % (LR_TPR / 10))
+# print("LRRMSE: %f " % (LRRMSE / 10))
+print("eclf_TPR: %f " % (eclf_TPR / 10))
+
+
+my_prediction = eclf.predict(x_test)
+
+df = pd.DataFrame({"fraud": my_prediction})
+df.to_csv("my_prediction.csv", index=False)
