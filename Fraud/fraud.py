@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import VotingClassifier
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import KFold
@@ -70,24 +71,24 @@ forest = RandomForestClassifier(max_depth=10, min_samples_split=2, n_estimators=
 # print(len(set(pred_forest == 1)))
 # print(my_forest.feature_importances_)
 
-DT = DecisionTreeClassifier(random_state=0, max_depth=10, min_samples_leaf=5)
+DT = DecisionTreeClassifier(random_state=0, max_depth=15, min_samples_leaf=2)
 # my_DT = DT.fit(x_train, y_train)
 # print(my_DT.score(x_train, y_train))
 # pred_DT = my_DT.predict(x_test)
 # print(len(set(pred_DT == 1)))
 
-NN = MLPClassifier( alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
+NN = MLPClassifier(alpha=1e-5, hidden_layer_sizes=(5, 2), random_state=1)
 
 LR = LogisticRegression(penalty='l1', tol=0.01)
 
-eclf = VotingClassifier(estimators=[('forest', forest), ('DT', DT), ('NN', NN)], voting='hard')
+eclf = VotingClassifier(estimators=[('forest', forest),('DT', DT),('NN', NN)], voting='hard')
+
 
 def perf_measure(y_actual, y_hat):
     TP = 0
     FP = 0
     TN = 0
     FN = 0
-
     for i in range(len(y_hat)):
         if y_actual[i] == y_hat[i] == 1:
             TP += 1
@@ -111,11 +112,14 @@ DTRMSE = 0
 NNRMSE = 0
 ForestRMSE = 0
 LRRMSE = 0
+eclf_RMSE = 0
 DT_TPR = 0
 NN_TPR = 0
 forest_TPR = 0
 LR_TPR = 0
 eclf_TPR = 0
+fDT = fNN = fFOREST = fLR = fECLF = 0
+
 for train_index, test_index in kf.split(X):
     X_train, X_test = X[train_index], X[test_index]
     y_train, y_test = y[train_index], y[test_index]
@@ -123,34 +127,50 @@ for train_index, test_index in kf.split(X):
     # DT.fit(X_train, y_train)
     # DTRMSE += sqrt(mean_squared_error(y_test, DT.predict(X_test)))
     # DT_TPR += perf_measure(y_test, DT.predict(X_test))
+    # fDT += f1_score(y_test, DT.predict(X_test), average='macro')
 
     # NN.fit(X_train, y_train)
     # NNRMSE += sqrt(mean_squared_error(y_test, NN.predict(X_test)))
     # NN_TPR += perf_measure(y_test, NN.predict(X_test))
+    # fNN += f1_score(y_test, NN.predict(X_test), average='macro')
 
-    # forest.fit(X_train, y_train)
-    # ForestRMSE += sqrt(mean_squared_error(y_test, forest.predict(X_test)))
-    # forest_TPR += perf_measure(y_test, forest.predict(X_test))
+    forest.fit(X_train, y_train)
+    ForestRMSE += sqrt(mean_squared_error(y_test, forest.predict(X_test)))
+    forest_TPR += perf_measure(y_test, forest.predict(X_test))
+    fFOREST += f1_score(y_test, forest.predict(X_test), average='macro')
 
     # LR.fit(X_train, y_train)
     # LRRMSE += sqrt(mean_squared_error(y_test, LR.predict(X_test)))
     # LR_TPR += perf_measure(y_test, LR.predict(X_test))
+    # fLR += f1_score(y_test, LR.predict(X_test), average='macro')
 
-    eclf.fit(X_train,y_train)
-    eclf_TPR += perf_measure(y_test, eclf.predict(X_test))
+    # eclf.fit(X_train, y_train)
+    # eclf_RMSE += sqrt(mean_squared_error(y_test, eclf.predict(X_test)))
+    # eclf_TPR += perf_measure(y_test, eclf.predict(X_test))
+    # fECLF += f1_score(y_test, eclf.predict(X_test), average='macro')
+
 
 # print("DT: %f " % (DT_TPR / 10))
 # print("DTRMSE: %f " % (DTRMSE / 10))
-# print("NN: %f " % (NN_TPR / 10))
+# print("DTFscore: %f " % (fDT / 10))
+
+# print("NNTPR: %f " % (NN_TPR / 10))
 # print("NNRMSE: %f " % (NNRMSE / 10))
-# print("forest: %f " % (forest_TPR / 10))
-# print("forestRMSE: %f " % (ForestRMSE / 10))
+# print("NNFscore: %f " % (fNN / 10))
+
+print("forest: %f " % (forest_TPR / 10))
+print("forestRMSE: %f " % (ForestRMSE / 10))
+print("forestFscore: %f " % (fFOREST / 10))
+
 # print("LR_TPR: %f " % (LR_TPR / 10))
 # print("LRRMSE: %f " % (LRRMSE / 10))
-print("eclf_TPR: %f " % (eclf_TPR / 10))
+# print("LRFscore: %f " % (fLR / 10))
 
+# print("eclf_RMSE: %f " % (eclf_RMSE / 10))
+# print("eclf_TPR: %f " % (eclf_TPR / 10))
+# print("fECLF: %f " % (fECLF / 10))
 
-my_prediction = eclf.predict(x_test)
-
-df = pd.DataFrame({"fraud": my_prediction})
-df.to_csv("my_prediction.csv", index=False)
+# my_prediction = eclf.predict(x_test)
+#
+# df = pd.DataFrame({"fraud": my_prediction})
+# df.to_csv("my_prediction.csv", index=False)
